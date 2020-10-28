@@ -128,26 +128,25 @@ class PoetrysDataSet(object):
                         out.append(self.idx2word[i])
         return out
 
-    def _one_hot_encoding(self, sample, input_length):
-        vec_dim = len(self.vocab)
+    def _one_hot_encoding(self, sample):
         if type(sample) != list or 0 == len(sample):
             log.error("type or length of sample is invalid.")
             return None
         feature_samples = []
         label_samples = []
         idx = 0
-        while idx < len(sample)-input_length:
-            feature = sample[idx: idx + input_length]
-            label = sample[idx + input_length]
+        while idx < len(sample)-self.embedding_input_length:
+            feature = sample[idx: idx + self.embedding_input_length]
+            label = sample[idx + self.embedding_input_length]
 
             label_vector = np.zeros(
-                shape=(1, vec_dim),
+                shape=(1, self.vocab_size),
                 dtype=np.float
             )
             label_vector[0, label] = 1.0
 
             feature_vector = np.zeros(
-                shape=(1, input_length, vec_dim),
+                shape=(1, self.embedding_input_length, self.vocab_size),
                 dtype=np.float
             )
 
@@ -165,7 +164,7 @@ class PoetrysDataSet(object):
 
         return feature_samples, label_samples
 
-    def _word2vec_encoding(self, sample, input_length, w2v_model_path):
+    def _word2vec_encoding(self, sample, w2v_model_path):
         pass
 
     def train_valid_test_split(self):
@@ -200,7 +199,7 @@ class PoetrysDataSet(object):
                 sample = self.poetrys_vector_test[self._data_index_test[i]]
 
             if ONE_HOT == mode:
-                feature_samples, label_samples = self._one_hot_encoding(sample, self.embedding_input_length)
+                feature_samples, label_samples = self._one_hot_encoding(sample)
                 feature_batches = feature_batches + feature_samples
                 label_batches = label_batches + label_samples
             elif WORD2VEC == mode:
@@ -254,6 +253,40 @@ class PoetrysDataSet(object):
                 yield feature_batches[i], label_batches[i]
 
             chunk_idx+=1
+
+    def sentence2vec(self, sample, mode='one-hot'):
+        if type(sample) != list or 0 == len(sample):
+            log.error("type or length of sample is invalid.")
+            return None
+        feature_samples = []
+        label_samples = []
+        idx = 0
+        while idx < len(sample)-self.embedding_input_length:
+            feature = sample[idx: idx + self.embedding_input_length]
+            label = sample[idx + self.embedding_input_length]
+
+            label_vector = np.zeros(
+                shape=(1, self.vocab_size),
+                dtype=np.float
+            )
+            label_vector[0, label] = 1.0
+
+            feature_vector = np.zeros(
+                shape=(1, self.embedding_input_length, self.vocab_size),
+                dtype=np.float
+            )
+
+            for i, f in enumerate(feature):
+                feature_vector[0, i, f] = 1.0
+
+            idx += 1
+            feature_samples.append(feature_vector)
+            label_samples.append(label_vector)
+            # log.debug(feature_vector.shape)
+            # log.debug(label_vector.shape)
+            # log.debug(self._print_vector(feature_vector))
+            # log.debug(self._print_vector(label_vector))
+            # log.debug("============")
 #
 # m=PoetrysDataSet('/home/zhanglei/Gitlab/LstmApp/config/cfg.ini')
 # m.next_batch()
