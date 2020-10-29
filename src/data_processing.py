@@ -4,6 +4,9 @@
 import re
 import numpy as np
 from collections import Counter
+import operator
+from functools import reduce
+
 from sklearn.model_selection import train_test_split
 from src.utils import Logger
 from src.constant import SPACE, ONE_HOT, WORD2VEC, TRAIN_SET, TEST_SET, VALID_SET
@@ -23,7 +26,7 @@ class PoetrysDataSet(object):
         self.poetrys = []             # ['孤', '峰', '去', '，', '灰', '飞', '一', '烬',],['休', '。', '云', '无', '空', '碧', '在', '，', '天'],...
         self.vocab = set()            # ['丁', '七', '万', '丈', '三', '上', '下', '不', '与', '丐', '丑', '专', '且', '丕', '世', '丘', '丙', ...]
         self.word2idx = {}            # {' ': 0, '2': 1, '3': 2, '6': 3, '7': 4, '8': 5, ';': 6, 'F': 7, 'p': 8, 'í': 9, 'ó': 10,...}
-        self.idx2word = {}            # {0: ' ', 1: '2', 2: '3', 3: '6', 4: '7', 5: '8', 6: ';', 7: 'F', 8: 'p', 9: 'í', 10: 'ó', ...}
+        self.format = {}            # {0: ' ', 1: '2', 2: '3', 3: '6', 4: '7', 5: '8', 6: ';', 7: 'F', 8: 'p', 9: 'í', 10: 'ó', ...}
         self.poetrys_vector = []      # [[1355, 6755, 4305, 1731, 658, 7444, 2405], [6290, 7272, 1104, 1665, 21, 478], [6952, 6961, 1580, 2626, 7444, 24]]
         self.poetrys_vector_train = []
         self.poetrys_vector_valid = []
@@ -73,15 +76,20 @@ class PoetrysDataSet(object):
                     if idx is not None:
                         content = content[:idx.span()[0]]
 
-                    if len(content) < 5:
+                    if len(content) < self.embedding_input_length:
                         continue
 
                     words = []
                     for i in range(0, len(content)):
                         word = content[i:i + 1]
+                        if (i+1) % self.embedding_input_length == 0 and word not in [',',',','，','.','。']:
+                            words = []
+                            break
                         words.append(word)
                         self.all_words.append(word)
-                    self.poetrys.append(words)
+
+                    if len(words) > 0:
+                        self.poetrys.append(words)
 
                 except Exception as e:
                     pass
@@ -107,12 +115,17 @@ class PoetrysDataSet(object):
         else:
             self.idx2word = idx2word
 
-        w2i = lambda word: self.word2idx.get(word) if self.word2idx.get(word) is not None else  self.word2idx.get(SPACE)
-        self.poetrys_vector = [list(map(w2i, poetry)) for poetry in self.poetrys]
+        self.w2i = lambda word: self.word2idx.get(word) if self.word2idx.get(word) is not None \
+            else self.word2idx.get(SPACE)
+        self.i2w = lambda idx: self.idx2word.get(idx) if self.idx2word.get(idx) is not None \
+            else SPACE
+        self.poetrys_vector = [list(map(self.w2i, poetry)) for poetry in self.poetrys]
         self._data_size = len(self.poetrys_vector)
         self._data_index = np.arange(self._data_size)
         log.debug((self.poetrys_vector[0:2]))
         log.debug((self.poetrys[0:2]))
+        # for i in range(len(self.poetrys)):
+        #     log.debug("{0}:{1}".format(i, self.poetrys[i]))
 
     def _print_vector(self, vec):
         out = []
@@ -254,39 +267,34 @@ class PoetrysDataSet(object):
 
             chunk_idx+=1
 
-    def sentence2vec(self, sample, mode='one-hot'):
-        if type(sample) != list or 0 == len(sample):
+    def idxlst2sentence(self, sample):
+        return ''.join(reduce(operator.add, [list(self.i2w(poetry)) for poetry in sample]))
+
+    def sentence2vec(self, sample, isword2idx=True, mode='one-hot'):
+
+        if isword2idx:
+            sample_vector = reduce(operator.add, [list(map(self.w2i, poetry)) for poetry in sample])
+        else:
+            sample_vector = sample
+
+        if self.embedding_input_length != len(sample_vector):
             log.error("type or length of sample is invalid.")
             return None
-        feature_samples = []
-        label_samples = []
-        idx = 0
-        while idx < len(sample)-self.embedding_input_length:
-            feature = sample[idx: idx + self.embedding_input_length]
-            label = sample[idx + self.embedding_input_length]
 
-            label_vector = np.zeros(
-                shape=(1, self.vocab_size),
-                dtype=np.float
-            )
-            label_vector[0, label] = 1.0
-
+        if ONE_HOT == mode:
             feature_vector = np.zeros(
                 shape=(1, self.embedding_input_length, self.vocab_size),
                 dtype=np.float
             )
 
-            for i, f in enumerate(feature):
+            for i, f in enumerate(sample_vector):
                 feature_vector[0, i, f] = 1.0
 
-            idx += 1
-            feature_samples.append(feature_vector)
-            label_samples.append(label_vector)
-            # log.debug(feature_vector.shape)
-            # log.debug(label_vector.shape)
-            # log.debug(self._print_vector(feature_vector))
-            # log.debug(self._print_vector(label_vector))
-            # log.debug("============")
+            return feature_vector
+
+        elif WORD2VEC == mode:
+            pass
 #
 # m=PoetrysDataSet('/home/zhanglei/Gitlab/LstmApp/config/cfg.ini')
-# m.next_batch()
+# m._one_hot_encoding([980, 4588, 2959, 1257, 506, 4999, 1743, 4278, 4893, 787, 1203, 2, 358, 4721, 4730, 1141, 1892, 4999, 1759, 4619, 4515, 3496, 1937, 2, 2864, 1865, 4651, 1719, 2987, 4999, 3209, 2166, 3301, 1695, 3510, 2, 3487, 2673, 358, 4604, 493, 4999, 3196, 1906, 1112, 3588, 1845, 2])
+# m.sentence2vec(sample="钟鼓寒，楼阁",isword2idx=True)
