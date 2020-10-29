@@ -164,7 +164,7 @@ class LstmModel(object):
         for diversity in [0.7, 1.0, 1.3]:
             print("------------Diversity {}--------------".format(diversity))
             generate = self.predict_random()
-            print(generate)
+            # print(generate)
 
             # 训练时的预测结果写入txt
             with open('../data/out.txt', 'a', encoding='utf-8') as f:
@@ -178,8 +178,8 @@ class LstmModel(object):
             return
         import random
 
-        index = random.randint(0, self.dataset.data_size_train)
-        sentence = self.dataset.poetrys_vector_train[index][: self.embedding_input_length]
+        index = random.randint(0, self.dataset.data_size_valid)
+        sentence = self.dataset.poetrys_vector_valid[index][: self.embedding_input_length]
         generate = self.predict_sen(sentence)
         return self.dataset.idxlst2sentence(generate)
 
@@ -196,8 +196,8 @@ class LstmModel(object):
         for i in range(length):
             pred = self.predict_base(sentence, False)
             generate += pred
-            print('pred:',pred)
-            print('sen:',sentence)
+            # print('pred:',pred)
+            # print('sen:',sentence)
             sentence = sentence[1:] + pred
         return generate
 
@@ -214,7 +214,7 @@ class LstmModel(object):
             return
 
         sentence = text[-max_len:]
-        print('the first line:', sentence)
+        # print('the first line:', sentence)
         generate = sentence
         generate += self._preds(sentence, 24-self.embedding_input_length)
         return generate

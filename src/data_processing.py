@@ -131,12 +131,12 @@ class PoetrysDataSet(object):
     def dump_list(self, filename, memory_list):
         with open(filename, 'w') as f:
             for i in range(0, len(memory_list)):
-                f.write(' '.join(memory_list[i]) + "\n")
+                f.write(' '.join([str(item) for item in memory_list[i]]) + "\n")
 
     def dump_dict(self, filename, memory_dict):
         with open(filename, 'w') as f:
-            for i, f in enumerate(memory_dict):
-                f.write(' '.join([f, memory_dict[f]]) + "\n")
+            for i, fea in enumerate(memory_dict):
+                f.write(' '.join([str(fea), str(memory_dict[fea])]) + "\n")
 
     def dump_data(self):
         org_filename = self.dump_dir + 'poetrys_words.dat'
@@ -146,13 +146,13 @@ class PoetrysDataSet(object):
         self.dump_list(vec_filename, self.poetrys_vector)
 
         train_vec_filename = self.dump_dir + 'poetrys_words_train_vector.dat'
-        self.dump_list(train_vec_filename, self.poetrys_vector)
+        self.dump_list(train_vec_filename, self.poetrys_vector_train)
 
         valid_vec_filename = self.dump_dir + 'poetrys_words_valid_vector.dat'
-        self.dump_list(valid_vec_filename, self.poetrys_vector)
+        self.dump_list(valid_vec_filename, self.poetrys_vector_valid)
 
         test_vec_filename = self.dump_dir + 'poetrys_words_test_vector.dat'
-        self.dump_list(test_vec_filename, self.poetrys_vector)
+        self.dump_list(test_vec_filename, self.poetrys_vector_test)
 
         vocab_filename = self.dump_dir + 'poetrys_vocab.dat'
         self.dump_list(vocab_filename, list(self.vocab))
@@ -161,7 +161,7 @@ class PoetrysDataSet(object):
         self.dump_dict(w2i_filename, self.word2idx)
 
         i2w_filename = self.dump_dir + 'poetrys_index2word.dat'
-        self.dump_dict(i2w_filename, list(self.idx2word))
+        self.dump_dict(i2w_filename, self.idx2word)
 
     def _print_vector(self, vec):
         out = []
