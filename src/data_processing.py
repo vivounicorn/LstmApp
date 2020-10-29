@@ -26,7 +26,7 @@ class PoetrysDataSet(object):
         self.poetrys = []             # ['孤', '峰', '去', '，', '灰', '飞', '一', '烬',],['休', '。', '云', '无', '空', '碧', '在', '，', '天'],...
         self.vocab = set()            # ['丁', '七', '万', '丈', '三', '上', '下', '不', '与', '丐', '丑', '专', '且', '丕', '世', '丘', '丙', ...]
         self.word2idx = {}            # {' ': 0, '2': 1, '3': 2, '6': 3, '7': 4, '8': 5, ';': 6, 'F': 7, 'p': 8, 'í': 9, 'ó': 10,...}
-        self.format = {}            # {0: ' ', 1: '2', 2: '3', 3: '6', 4: '7', 5: '8', 6: ';', 7: 'F', 8: 'p', 9: 'í', 10: 'ó', ...}
+        self.idx2word = {}            # {0: ' ', 1: '2', 2: '3', 3: '6', 4: '7', 5: '8', 6: ';', 7: 'F', 8: 'p', 9: 'í', 10: 'ó', ...}
         self.poetrys_vector = []      # [[1355, 6755, 4305, 1731, 658, 7444, 2405], [6290, 7272, 1104, 1665, 21, 478], [6952, 6961, 1580, 2626, 7444, 24]]
         self.poetrys_vector_train = []
         self.poetrys_vector_valid = []
@@ -43,6 +43,7 @@ class PoetrysDataSet(object):
         self._test_size = cfg.test_ratio()
 
         self.vocab_size = cfg.vocab_size()
+        self.dump_dir = cfg.dump_dir()
 
         self.embedding_input_length = cfg.embedding_input_length()
         self._build_base(cfg.poetry_file_path(),
@@ -126,6 +127,41 @@ class PoetrysDataSet(object):
         log.debug((self.poetrys[0:2]))
         # for i in range(len(self.poetrys)):
         #     log.debug("{0}:{1}".format(i, self.poetrys[i]))
+
+    def dump_list(self, filename, memory_list):
+        with open(filename, 'w') as f:
+            for i in range(0, len(memory_list)):
+                f.write(' '.join(memory_list[i]) + "\n")
+
+    def dump_dict(self, filename, memory_dict):
+        with open(filename, 'w') as f:
+            for i, f in enumerate(memory_dict):
+                f.write(' '.join([f, memory_dict[f]]) + "\n")
+
+    def dump_data(self):
+        org_filename = self.dump_dir + 'poetrys_words.dat'
+        self.dump_list(org_filename, self.poetrys)
+
+        vec_filename = self.dump_dir + 'poetrys_words_vector.dat'
+        self.dump_list(vec_filename, self.poetrys_vector)
+
+        train_vec_filename = self.dump_dir + 'poetrys_words_train_vector.dat'
+        self.dump_list(train_vec_filename, self.poetrys_vector)
+
+        valid_vec_filename = self.dump_dir + 'poetrys_words_valid_vector.dat'
+        self.dump_list(valid_vec_filename, self.poetrys_vector)
+
+        test_vec_filename = self.dump_dir + 'poetrys_words_test_vector.dat'
+        self.dump_list(test_vec_filename, self.poetrys_vector)
+
+        vocab_filename = self.dump_dir + 'poetrys_vocab.dat'
+        self.dump_list(vocab_filename, list(self.vocab))
+
+        w2i_filename = self.dump_dir + 'poetrys_word2index.dat'
+        self.dump_dict(w2i_filename, self.word2idx)
+
+        i2w_filename = self.dump_dir + 'poetrys_index2word.dat'
+        self.dump_dict(i2w_filename, list(self.idx2word))
 
     def _print_vector(self, vec):
         out = []
@@ -295,6 +331,6 @@ class PoetrysDataSet(object):
         elif WORD2VEC == mode:
             pass
 #
-# m=PoetrysDataSet('/home/zhanglei/Gitlab/LstmApp/config/cfg.ini')
+m=PoetrysDataSet('/home/zhanglei/Gitlab/LstmApp/config/cfg.ini')
 # m._one_hot_encoding([980, 4588, 2959, 1257, 506, 4999, 1743, 4278, 4893, 787, 1203, 2, 358, 4721, 4730, 1141, 1892, 4999, 1759, 4619, 4515, 3496, 1937, 2, 2864, 1865, 4651, 1719, 2987, 4999, 3209, 2166, 3301, 1695, 3510, 2, 3487, 2673, 358, 4604, 493, 4999, 3196, 1906, 1112, 3588, 1845, 2])
 # m.sentence2vec(sample="钟鼓寒，楼阁",isword2idx=True)

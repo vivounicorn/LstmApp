@@ -19,6 +19,11 @@ class Config(object):
         if not self.config.has_section(PARAM_SECTION):
             raise IOError("Can't read section(%s)" % PARAM_SECTION)
 
+    def dump_dir(self):
+        if self.config.has_option(FILE_SECTION, 'dump_dir'):
+            return self.config.get(FILE_SECTION, 'dump_dir')
+        return None
+
     def poetry_file_path(self):
         if self.config.has_option(FILE_SECTION, 'poetry_file_path'):
             return self.config.get(FILE_SECTION, 'poetry_file_path')
