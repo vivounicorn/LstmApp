@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import os
 import re
 import numpy as np
 from collections import Counter
@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from src.utils import Logger
 from src.constant import SPACE, ONE_HOT, WORD2VEC, TRAIN_SET, TEST_SET, VALID_SET
 from src.config import Config
+from src.word2vec import Word2vecModel
 
 
 class PoetrysDataSet(object):
@@ -23,16 +24,18 @@ class PoetrysDataSet(object):
         cfg = Config(cfg_path)
         global log
         log = Logger(cfg.data_log_path())
-        self.poetrys = []             # ['孤', '峰', '去', '，', '灰', '飞', '一', '烬',],['休', '。', '云', '无', '空', '碧', '在', '，', '天'],...
-        self.vocab = set()            # ['丁', '七', '万', '丈', '三', '上', '下', '不', '与', '丐', '丑', '专', '且', '丕', '世', '丘', '丙', ...]
-        self.word2idx = {}            # {' ': 0, '2': 1, '3': 2, '6': 3, '7': 4, '8': 5, ';': 6, 'F': 7, 'p': 8, 'í': 9, 'ó': 10,...}
-        self.idx2word = {}            # {0: ' ', 1: '2', 2: '3', 3: '6', 4: '7', 5: '8', 6: ';', 7: 'F', 8: 'p', 9: 'í', 10: 'ó', ...}
-        self.poetrys_vector = []      # [[1355, 6755, 4305, 1731, 658, 7444, 2405], [6290, 7272, 1104, 1665, 21, 478], [6952, 6961, 1580, 2626, 7444, 24]]
+        self.poetrys = []  # ['孤', '峰', '去', '，', '灰', '飞', '一', '烬',],['休', '。', '云', '无', '空', '碧', '在', '，', '天'],...
+        self.vocab = set()  # ['丁', '七', '万', '丈', '三', '上', '下', '不', '与', '丐', '丑', '专', '且', '丕', '世', '丘', '丙', ...]
+        self.word2idx = {}  # {' ': 0, '2': 1, '3': 2, '6': 3, '7': 4, '8': 5, ';': 6, 'F': 7, 'p': 8, 'í': 9, 'ó': 10,...}
+        self.idx2word = {}  # {0: ' ', 1: '2', 2: '3', 3: '6', 4: '7', 5: '8', 6: ';', 7: 'F', 8: 'p', 9: 'í', 10: 'ó', ...}
+        self.poetrys_vector = []  # [[1355, 6755, 4305, 1731, 658, 7444, 2405], [6290, 7272, 1104, 1665, 21, 478], [6952, 6961, 1580, 2626, 7444, 24]]
         self.poetrys_vector_train = []
         self.poetrys_vector_valid = []
         self.poetrys_vector_test = []
 
         self.all_words = [SPACE]
+
+        self.w2v_model = None
 
         self._data_size = 0
         self.data_size_test = 0
@@ -51,7 +54,7 @@ class PoetrysDataSet(object):
                          word2idx,
                          idx2word)
 
-        self.train_valid_test_split()
+        self._train_valid_test_split()
 
     def _build_base(self,
                     file_path,
@@ -83,7 +86,7 @@ class PoetrysDataSet(object):
                     words = []
                     for i in range(0, len(content)):
                         word = content[i:i + 1]
-                        if (i+1) % self.embedding_input_length == 0 and word not in [',',',','，','.','。']:
+                        if (i + 1) % self.embedding_input_length == 0 and word not in [',', ',', '，', '.', '。']:
                             words = []
                             break
                         words.append(word)
@@ -96,13 +99,13 @@ class PoetrysDataSet(object):
                     pass
 
         if vocab is None:
-            top_n = Counter(self.all_words).most_common(self.vocab_size-1)
+            top_n = Counter(self.all_words).most_common(self.vocab_size - 1)
             top_n.append(SPACE)
             self.vocab = sorted(set([i[0] for i in top_n]))
         else:
-            top_n = list(vocab)[:self.vocab_size-1]
+            top_n = list(vocab)[:self.vocab_size - 1]
             top_n.append(SPACE)
-            self.vocab = sorted(set([i for i in top_n]))       # cut vocab with threshold.
+            self.vocab = sorted(set([i for i in top_n]))  # cut vocab with threshold.
 
         log.debug(self.vocab)
 
@@ -116,9 +119,9 @@ class PoetrysDataSet(object):
         else:
             self.idx2word = idx2word
 
-        self.w2i = lambda word: self.word2idx.get(word) if self.word2idx.get(word) is not None \
+        self.w2i = lambda word: self.word2idx.get(str(word)) if self.word2idx.get(word) is not None \
             else self.word2idx.get(SPACE)
-        self.i2w = lambda idx: self.idx2word.get(idx) if self.idx2word.get(idx) is not None \
+        self.i2w = lambda idx: self.idx2word.get(int(idx)) if self.idx2word.get(int(idx)) is not None \
             else SPACE
         self.poetrys_vector = [list(map(self.w2i, poetry)) for poetry in self.poetrys]
         self._data_size = len(self.poetrys_vector)
@@ -128,40 +131,15 @@ class PoetrysDataSet(object):
         # for i in range(len(self.poetrys)):
         #     log.debug("{0}:{1}".format(i, self.poetrys[i]))
 
-    def dump_list(self, filename, memory_list):
+    def _dump_list(self, filename, memory_list):
         with open(filename, 'w') as f:
             for i in range(0, len(memory_list)):
                 f.write(' '.join([str(item) for item in memory_list[i]]) + "\n")
 
-    def dump_dict(self, filename, memory_dict):
+    def _dump_dict(self, filename, memory_dict):
         with open(filename, 'w') as f:
             for i, fea in enumerate(memory_dict):
                 f.write(' '.join([str(fea), str(memory_dict[fea])]) + "\n")
-
-    def dump_data(self):
-        org_filename = self.dump_dir + 'poetrys_words.dat'
-        self.dump_list(org_filename, self.poetrys)
-
-        vec_filename = self.dump_dir + 'poetrys_words_vector.dat'
-        self.dump_list(vec_filename, self.poetrys_vector)
-
-        train_vec_filename = self.dump_dir + 'poetrys_words_train_vector.dat'
-        self.dump_list(train_vec_filename, self.poetrys_vector_train)
-
-        valid_vec_filename = self.dump_dir + 'poetrys_words_valid_vector.dat'
-        self.dump_list(valid_vec_filename, self.poetrys_vector_valid)
-
-        test_vec_filename = self.dump_dir + 'poetrys_words_test_vector.dat'
-        self.dump_list(test_vec_filename, self.poetrys_vector_test)
-
-        vocab_filename = self.dump_dir + 'poetrys_vocab.dat'
-        self.dump_list(vocab_filename, list(self.vocab))
-
-        w2i_filename = self.dump_dir + 'poetrys_word2index.dat'
-        self.dump_dict(w2i_filename, self.word2idx)
-
-        i2w_filename = self.dump_dir + 'poetrys_index2word.dat'
-        self.dump_dict(i2w_filename, self.idx2word)
 
     def _print_vector(self, vec):
         out = []
@@ -169,7 +147,7 @@ class PoetrysDataSet(object):
             if len(v.shape) == 2:
                 for i in range(0, v.shape[0]):
                     for j in range(0, v.shape[1]):
-                        if int(v[i][j]) !=0:
+                        if int(v[i][j]) != 0:
                             out.append(self.idx2word[j])
             elif len(v.shape) == 1:
                 for i in range(0, v.shape[0]):
@@ -180,11 +158,11 @@ class PoetrysDataSet(object):
     def _one_hot_encoding(self, sample):
         if type(sample) != list or 0 == len(sample):
             log.error("type or length of sample is invalid.")
-            return None
+            return None, None
         feature_samples = []
         label_samples = []
         idx = 0
-        while idx < len(sample)-self.embedding_input_length:
+        while idx < len(sample) - self.embedding_input_length:
             feature = sample[idx: idx + self.embedding_input_length]
             label = sample[idx + self.embedding_input_length]
 
@@ -213,20 +191,61 @@ class PoetrysDataSet(object):
 
         return feature_samples, label_samples
 
-    def _word2vec_encoding(self, sample, w2v_model_path):
-        pass
+    def _word2vec_encoding(self, sample):
+        if type(sample) != list or 0 == len(sample):
+            log.error("type or length of sample is invalid.")
+            return None, None
+        feature_samples = []
+        label_samples = []
+        idx = 0
+        while idx < len(sample) - self.embedding_input_length:
+            feature = sample[idx: idx + self.embedding_input_length]
+            label = sample[idx + self.embedding_input_length]
 
-    def train_valid_test_split(self):
-        if 1 <= self._valid_size+self._test_size or self._data_size <= 2:
+            if self.w2v_model is None:
+                log.error("word2vec model is none.")
+                return None, None
+
+            label_vector = np.zeros(
+                shape=(1, self.vocab_size),
+                dtype=np.float
+            )
+            label_vector[0, label] = 1.0
+
+            # if label_vector.shape[1] != self.w2v_model.size:
+            #     log.error("type or length of sample is invalid.{}:{}".format(label_vector.shape,self.w2v_model.size))
+            #     return None, None
+
+            feature_vector = np.zeros(
+                shape=(1, self.embedding_input_length, self.w2v_model.size),
+                dtype=np.float
+            )
+
+            for i in range(self.embedding_input_length):
+                feature_vector[0, i] = self.w2v_model.get_vector(feature[i])
+
+            idx += 1
+            feature_samples.append(feature_vector)
+            label_samples.append(label_vector)
+            # log.debug(feature_vector.shape)
+            # log.debug(label_vector.shape)
+            # log.debug(self._print_vector(feature_vector))
+            # log.debug(self._print_vector(label_vector))
+            # log.debug("============")
+
+        return feature_samples, label_samples
+
+    def _train_valid_test_split(self):
+        if 1 <= self._valid_size + self._test_size or self._data_size <= 2:
             log.error('parameter error:{0}+{1}>=1 or data size:{2} <= 2'
                       .format(self._valid_size, self._test_size, self._data_size))
             return
-        train_valid_x, test_x = train_test_split(self.poetrys_vector, test_size=self._test_size, random_state = 0)
+        train_valid_x, test_x = train_test_split(self.poetrys_vector, test_size=self._test_size, random_state=0)
         self.poetrys_vector_test = test_x
         self.data_size_test = len(test_x)
         self._data_index_test = np.arange(self.data_size_test)
 
-        train_x, valid_x = train_test_split(train_valid_x, test_size=self._valid_size, random_state = 0)
+        train_x, valid_x = train_test_split(train_valid_x, test_size=self._valid_size, random_state=0)
         self.poetrys_vector_train = train_x
         self.data_size_train = len(train_x)
         self._data_index_train = np.arange(self.data_size_train)
@@ -239,6 +258,9 @@ class PoetrysDataSet(object):
         feature_batches = []
         label_batches = []
         sample = []
+        feature_samples = None
+        label_samples = None
+
         for i in range(start, end):
             if TRAIN_SET == batch_type:
                 sample = self.poetrys_vector_train[self._data_index_train[i]]
@@ -249,13 +271,13 @@ class PoetrysDataSet(object):
 
             if ONE_HOT == mode:
                 feature_samples, label_samples = self._one_hot_encoding(sample)
-                feature_batches = feature_batches + feature_samples
-                label_batches = label_batches + label_samples
             elif WORD2VEC == mode:
-                pass
+                feature_samples, label_samples = self._word2vec_encoding(sample)
+            feature_batches = feature_batches + feature_samples
+            label_batches = label_batches + label_samples
 
-        # log.debug((feature_batches))
-        # log.debug((label_batches))
+        # log.debug(len(feature_batches))
+        # log.debug(len(label_batches))
         # log.debug("============")
 
         return feature_batches, label_batches
@@ -274,7 +296,7 @@ class PoetrysDataSet(object):
         chunk_idx = 0
         while chunk_idx < n_chunk:
             start = chunk_idx * batch_size
-            end = (chunk_idx+1) * batch_size
+            end = (chunk_idx + 1) * batch_size
             if TRAIN_SET == batch_type:
                 np.random.shuffle(self._data_index_train)
                 if end >= self.data_size_train:
@@ -291,7 +313,7 @@ class PoetrysDataSet(object):
             feature_batches, label_batches = self._data_batch(start, end, mode, batch_type)
 
             if 0 == len(feature_batches):
-                log.error("feature and label data are invalid. %d,%d",start, end)
+                log.error("feature and label data are invalid. %d,%d", start, end)
                 continue
 
             # log.debug("(%d,%s)",len(feature_batches),feature_batches[0].shape)
@@ -301,15 +323,26 @@ class PoetrysDataSet(object):
                 # log.debug("all  shapes: %s,%s",feature_batches[i].shape, label_batches[i].shape)
                 yield feature_batches[i], label_batches[i]
 
-            chunk_idx+=1
+            chunk_idx += 1
+
+    def load_word2vec_model(self, model_path):
+        if not os.path.exists(model_path):
+            log.error("the path of word2vec model is not exist.")
+
+        self.w2v_model = Word2vecModel()
+        if not self.w2v_model.load(model_path):
+            log.error("loading word2vec model error.")
 
     def idxlst2sentence(self, sample):
         return ''.join(reduce(operator.add, [list(self.i2w(poetry)) for poetry in sample]))
 
+    def sentence2idxlist(self, sample):
+        return reduce(operator.add, [list(map(self.w2i, poetry)) for poetry in sample])
+
     def sentence2vec(self, sample, isword2idx=True, mode='one-hot'):
 
         if isword2idx:
-            sample_vector = reduce(operator.add, [list(map(self.w2i, poetry)) for poetry in sample])
+            sample_vector = self.sentence2idxlist(sample)
         else:
             sample_vector = sample
 
@@ -329,8 +362,47 @@ class PoetrysDataSet(object):
             return feature_vector
 
         elif WORD2VEC == mode:
-            pass
+            feature_vector = np.zeros(
+                shape=(1, self.embedding_input_length, self.w2v_model.size),
+                dtype=np.float
+            )
+
+            for i in range(self.embedding_input_length):
+                feature_vector[0, i] = self.w2v_model.get_vector(sample_vector[i])
+
+            return feature_vector
+
+        log.error("mode must be word2vec or one-hot.{0}".format(mode))
+        return None
+
+    def dump_data(self):
+        org_filename = self.dump_dir + 'poetrys_words.dat'
+        self._dump_list(org_filename, self.poetrys)
+
+        vec_filename = self.dump_dir + 'poetrys_words_vector.dat'
+        self._dump_list(vec_filename, self.poetrys_vector)
+
+        train_vec_filename = self.dump_dir + 'poetrys_words_train_vector.dat'
+        self._dump_list(train_vec_filename, self.poetrys_vector_train)
+
+        valid_vec_filename = self.dump_dir + 'poetrys_words_valid_vector.dat'
+        self._dump_list(valid_vec_filename, self.poetrys_vector_valid)
+
+        test_vec_filename = self.dump_dir + 'poetrys_words_test_vector.dat'
+        self._dump_list(test_vec_filename, self.poetrys_vector_test)
+
+        vocab_filename = self.dump_dir + 'poetrys_vocab.dat'
+        self._dump_list(vocab_filename, list(self.vocab))
+
+        w2i_filename = self.dump_dir + 'poetrys_word2index.dat'
+        self._dump_dict(w2i_filename, self.word2idx)
+
+        i2w_filename = self.dump_dir + 'poetrys_index2word.dat'
+        self._dump_dict(i2w_filename, self.idx2word)
+
+
+
 #
-m=PoetrysDataSet('/home/zhanglei/Gitlab/LstmApp/config/cfg.ini')
+m = PoetrysDataSet('/home/zhanglei/Gitlab/LstmApp/config/cfg.ini')
 # m._one_hot_encoding([980, 4588, 2959, 1257, 506, 4999, 1743, 4278, 4893, 787, 1203, 2, 358, 4721, 4730, 1141, 1892, 4999, 1759, 4619, 4515, 3496, 1937, 2, 2864, 1865, 4651, 1719, 2987, 4999, 3209, 2166, 3301, 1695, 3510, 2, 3487, 2673, 358, 4604, 493, 4999, 3196, 1906, 1112, 3588, 1845, 2])
 # m.sentence2vec(sample="钟鼓寒，楼阁",isword2idx=True)

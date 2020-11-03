@@ -11,6 +11,7 @@ from keras.utils import plot_model
 from keras.callbacks import ModelCheckpoint, LambdaCallback
 from keras.optimizers import Adam
 from keras import losses
+from src.constant import ONE_HOT, WORD2VEC
 
 from src.utils import Logger
 from src.config import Config
@@ -19,7 +20,8 @@ from src.config import Config
 class LstmModel(object):
     def __init__(self,
                  cfg_path='/home/zhanglei/Gitlab/LstmApp/config/cfg.ini',
-                 dataset=None):
+                 dataset=None,
+                 mode='one-hot'):
 
         cfg = Config(cfg_path)
 
@@ -35,7 +37,8 @@ class LstmModel(object):
         self.batch_size = cfg.batch_size()
         self.epochs = cfg.num_epochs()
         self.learning_rate = cfg.learning_rate()
-        self.dataset = dataset
+        self.data_sets = dataset
+        self.mode = mode
 
         self._build(cfg.lstm_layers_num(), cfg.dense_layers_num())
 
@@ -45,10 +48,15 @@ class LstmModel(object):
 
         units = 256
         model = Sequential()
-        model.add(Input(shape=(self.embedding_input_length, self.vocab_size)))
-        # model.add(Embedding(output_dim=self.embedding_output_dim,
-        #                     input_dim=self.vocab_size,
-        #                     input_length=self.embedding_input_length))
+
+        if self.mode == WORD2VEC:
+            dim = self.data_sets.w2v_model.size
+        elif self.mode == ONE_HOT:
+            dim = self.vocab_size
+        else:
+            raise ValueError("mode must be word2vec or one-hot.")
+
+        model.add(Input(shape=(self.embedding_input_length, dim)))
 
         model.add(LSTM(units=512,
                        return_sequences=True))
@@ -85,37 +93,40 @@ class LstmModel(object):
         self.save(model_path)
         return model_path
 
-    def train_batch(self):
+    def train_batch(self, mode='one-hot'):
 
         log.debug("begin training")
         log.debug("batch_size:{0},steps_per_epoch:{1},epochs:{2},validation_steps{3}"
                   .format(self.batch_size,
-                          self.dataset.data_size_train // self.batch_size,
+                          self.data_sets.data_size_train // self.batch_size,
                           self.epochs,
-                          self.dataset.data_size_valid // self.batch_size))
+                          self.data_sets.data_size_valid // self.batch_size))
 
-        self.model.fit_generator(generator=self.dataset.next_batch(batch_size=self.batch_size,
-                                                                     batch_type='train'),
+        self.model.fit_generator(generator=self.data_sets.next_batch(batch_size=self.batch_size,
+                                                                     batch_type='train',
+                                                                     mode=mode),
                                  verbose=True,
-                                 steps_per_epoch=self.dataset.data_size_train // self.batch_size,
+                                 steps_per_epoch=self.data_sets.data_size_train // self.batch_size,
                                  epochs=self.epochs,
-                                 validation_data=self.dataset.next_batch(batch_size=self.batch_size,
-                                                                           batch_type='valid'),
-                                 validation_steps=self.dataset.data_size_valid // self.batch_size,
+                                 validation_data=self.data_sets.next_batch(batch_size=self.batch_size,
+                                                                           batch_type='valid',
+                                                                           mode=mode),
+                                 validation_steps=self.data_sets.data_size_valid // self.batch_size,
                                  callbacks=[
                                      self.checkpoint,
                                      LambdaCallback(on_epoch_end=self.generate_sample_result)
                                  ])
         log.debug("end training")
 
-    def evaluate_batch(self):
+    def evaluate_batch(self, mode='one-hot'):
         log.debug("begin testing")
         log.debug("batch_size:{0},test{1}".format(self.batch_size,
-                                                  self.dataset.data_size_test // self.batch_size))
-        pred = self.model.evaluate_generator(generator=self.dataset.next_batch(batch_size=self.batch_size,
-                                                                                batch_type='test'),
-                                            verbose=True,
-                                            steps=self.dataset.data_size_test // self.batch_size)
+                                                  self.data_sets.data_size_test // self.batch_size))
+        pred = self.model.evaluate_generator(generator=self.data_sets.next_batch(batch_size=self.batch_size,
+                                                                                 batch_type='test',
+                                                                                 mode=mode),
+                                             verbose=True,
+                                             steps=self.data_sets.data_size_test // self.batch_size)
         log.debug(pred)
         # print(len(pred))
         # print(np.argmax(pred, axis=1))
@@ -136,19 +147,19 @@ class LstmModel(object):
         pro = np.random.choice(range(len(preds)), 1, p=preds)
         return int(pro.squeeze())
 
-    def predict_base(self, sentence, isword2idx=True):
+    def predict_base(self, sentence, isword2idx=True, mode='one-hot'):
         '''
         if isword2idx=True then sentence='床前明月光'
         if isword2idx=False then sentence=[321, 4721, 400, 3814, 282, 4999]
         return word's index
         '''
-        sentence_vector = self.dataset.sentence2vec(sentence, isword2idx)
+        sentence_vector = self.data_sets.sentence2vec(sentence, isword2idx, mode)
         preds = self.model.predict(sentence_vector, verbose=1)[0]
-        log.debug(np.argmax(preds))
+        # log.debug(np.argmax(preds))
         next_index = self.sample(preds, temperature=1)
         # next_char = self.dataset.i2w(next_index)
 
-        log.debug(next_index)
+        # log.debug(next_index)
         return [next_index]
 
     #--------------------------------------------------------
@@ -163,14 +174,14 @@ class LstmModel(object):
         print("\n==================Epoch {}=====================".format(epoch))
         for diversity in [0.7, 1.0, 1.3]:
             print("------------Diversity {}--------------".format(diversity))
-            generate = self.predict_random()
+            generate = self.predict_random(self.mode)
             # print(generate)
 
             # 训练时的预测结果写入txt
             with open('../data/out.txt', 'a', encoding='utf-8') as f:
                 f.write(generate + '\n')
 
-    def predict_random(self):
+    def predict_random(self, mode='one-hot'):
         '''随机从库中选取一句开头的诗句，生成五言绝句
         sentence = [1921, 2108, 318, 577, 804, 4999]'''
         if not self.model:
@@ -178,13 +189,13 @@ class LstmModel(object):
             return
         import random
 
-        index = random.randint(0, self.dataset.data_size_valid)
-        sentence = self.dataset.poetrys_vector_valid[index][: self.embedding_input_length]
-        generate = self.predict_sen(sentence)
-        return self.dataset.idxlst2sentence(generate)
+        index = random.randint(0, self.data_sets.data_size_test)
+        sentence = self.data_sets.poetrys_vector_test[index][: self.embedding_input_length]
+        generate = self.predict_sen(sentence, mode)
+        return self.data_sets.idxlst2sentence(generate)
 
 
-    def _preds(self, sentence, length=23):
+    def _preds(self, sentence, length=23, mode='one-hot'):
         '''
         sentence:预测输入值
         lenth:预测出的字符串长度
@@ -194,7 +205,7 @@ class LstmModel(object):
         sentence = sentence[:self.embedding_input_length]
         generate = []
         for i in range(length):
-            pred = self.predict_base(sentence, False)
+            pred = self.predict_base(sentence, False, mode)
             generate += pred
             # print('pred:',pred)
             # print('sen:',sentence)
@@ -202,7 +213,7 @@ class LstmModel(object):
         return generate
 
 
-    def predict_sen(self, text):
+    def predict_sen(self, text, mode='one-hot'):
         '''根据给出的前max_len个字，生成诗句'''
         '''text=[321, 4721, 400, 3814, 282, 4999]'''
         '''此例中，即根据给出的第一句诗句（含逗号），来生成古诗'''
@@ -216,7 +227,7 @@ class LstmModel(object):
         sentence = text[-max_len:]
         # print('the first line:', sentence)
         generate = sentence
-        generate += self._preds(sentence, 24-self.embedding_input_length)
+        generate += self._preds(sentence, 24-self.embedding_input_length, mode)
         return generate
 
     def gen_poetry(self, seed_text, rows=4, cols=5):
@@ -230,7 +241,7 @@ class LstmModel(object):
         if len(chars) != self.embedding_input_length:  # seq_len = 2
             return ""
         #
-        arr = [self.dataset.word2idx[k] for k in chars]
+        arr = [self.data_sets.word2idx[k] for k in chars]
         for i in range(self.embedding_input_length, rows * total_cols):
             if (i + 1) % total_cols == 0:  # 逗號或句號
                 if (i + 1) / total_cols == 2 or (i + 1) / total_cols == 4:  # 句號的情況
@@ -238,7 +249,7 @@ class LstmModel(object):
                 else:
                     arr.append(1)  # 逗號在字典中的對映為 1
             else:
-                sentence_vector = self.dataset.sentence2vec(seed_text)
+                sentence_vector = self.data_sets.sentence2vec(seed_text)
                 proba = self.model.predict(np.array(arr[-self.embedding_input_length:]), verbose=0)
                 predicted = np.argsort(proba[1])[-5:]
                 index = random.randint(0, len(predicted) - 1)  # 在前五個可能結果裡隨機取, 避免每次都是同樣的結果
@@ -247,7 +258,7 @@ class LstmModel(object):
                     index = random.randint(0, len(predicted) - 1)
                     new_char = predicted[index]
                 arr.append(new_char)
-        poem = [self.dataset.idx2word[i] for i in arr]
+        poem = [self.data_sets.idx2word[i] for i in arr]
         return "".join(poem)
 
     def build_model(self):

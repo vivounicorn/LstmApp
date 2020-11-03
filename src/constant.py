@@ -16,7 +16,7 @@ class Const:
         raise NameError(name)
 
 import sys
-sys.modules[__name__] = Const( )
+sys.modules[__name__] = Const()
 
 Const.SPACE = u' '
 Const.ONE_HOT = 'one-hot'
@@ -26,3 +26,4 @@ Const.VALID_SET = 'valid'
 Const.TEST_SET = 'test'
 Const.FILE_SECTION = 'file_path'
 Const.PARAM_SECTION = 'parameters'
+Const.WORD2VEC = 'word2vec'

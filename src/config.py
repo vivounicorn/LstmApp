@@ -3,7 +3,7 @@
 
 import os
 from configparser import ConfigParser
-from src.constant import FILE_SECTION, PARAM_SECTION
+from src.constant import FILE_SECTION, PARAM_SECTION, WORD2VEC
 
 class Config(object):
 
@@ -91,4 +91,39 @@ class Config(object):
     def test_ratio(self):
         if self.config.has_option(PARAM_SECTION, 'test_ratio'):
             return self.config.getfloat(PARAM_SECTION, 'test_ratio')
+        return None
+
+    def corpus_file(self):
+        if self.config.has_option(WORD2VEC, 'corpus_file'):
+            return self.config.get(WORD2VEC, 'corpus_file')
+        return None
+
+    def vec_out(self):
+        if self.config.has_option(WORD2VEC, 'vec_out'):
+            return self.config.get(WORD2VEC, 'vec_out')
+        return None
+
+    def window(self):
+        if self.config.has_option(WORD2VEC, 'window'):
+            return self.config.getint(WORD2VEC, 'window')
+        return None
+
+    def size(self):
+        if self.config.has_option(WORD2VEC, 'size'):
+            return self.config.getint(WORD2VEC, 'size')
+        return None
+
+    def sg(self):
+        if self.config.has_option(WORD2VEC, 'sg'):
+            return self.config.getint(WORD2VEC, 'sg')
+        return None
+
+    def hs(self):
+        if self.config.has_option(WORD2VEC, 'hs'):
+            return self.config.getint(WORD2VEC, 'hs')
+        return None
+
+    def negative(self):
+        if self.config.has_option(WORD2VEC, 'negative'):
+            return self.config.getint(WORD2VEC, 'negative')
         return None

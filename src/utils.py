@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import logging
 
 import logging.handlers
+
+logging.basicConfig(level=logging.INFO)
+
 
 class Logger(logging.Logger):
     def __init__(self, filename=None):
