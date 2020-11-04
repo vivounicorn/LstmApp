@@ -16,29 +16,29 @@ base_data = PoetrysDataSet(cfg_file_path)
 # generate = model.predict_sen(sv)
 # print(generate)
 # print(model.dataset.idxlst2sentence(generate))
-# # base_data.dump_data()
+base_data.dump_data()
 # # VecTrining anxiang1836
 
 
 w2v = Word2vecModel()
-# w2v.train_vec()
+w2v.train_vec()
 w2v.load('../data//w2v_models/text_type_1.model')
-# a=w2v.most_similar(str(base_data.w2i('床')))
-# for i in range(len(a)):
-#     print(base_data.i2w(a[i][0]),a[i][1])
-
-a=w2v.get_vector(str(base_data.w2i('床')))
-b=w2v.get_vector(str(base_data.w2i('上')))
-print(a)
-print(a.shape)
-import numpy as np
-feature_vector = np.zeros(
-                shape=(1, 6, 50),
-                dtype=np.float
-            )
-
-for i in range(6):
-    feature_vector[0, i] = w2v.get_vector(str(base_data.w2i('床')))
-feature_vector[0,0]=a
-feature_vector[0,1]=b
-print(feature_vector)
+a=w2v.most_similar(str(base_data.w2i('床')))
+for i in range(len(a)):
+    print(base_data.i2w(a[i][0]),a[i][1])
+#
+# a=w2v.get_vector(str(base_data.w2i('床')))
+# b=w2v.get_vector(str(base_data.w2i('上')))
+# print(a)
+# print(a.shape)
+# import numpy as np
+# feature_vector = np.zeros(
+#                 shape=(1, 6, 50),
+#                 dtype=np.float
+#             )
+#
+# for i in range(6):
+#     feature_vector[0, i] = w2v.get_vector(str(base_data.w2i('床')))
+# feature_vector[0,0]=a
+# feature_vector[0,1]=b
+# print(feature_vector)
