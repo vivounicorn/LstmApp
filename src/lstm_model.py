@@ -197,19 +197,6 @@ class LstmModel(object):
             log.info(generate)
         log.info("==================End=====================")
 
-        # with open('../data/out.txt', 'a', encoding='utf-8') as f:
-        #     f.write('==================Epoch {}=====================\n'.format(epoch))
-        #
-        # print("\n==================Epoch {}=====================".format(epoch))
-        # for diversity in [0.7, 1.0, 1.3]:
-        #     print("------------Diversity {}--------------".format(diversity))
-        #     generate = self.predict_random(mode=self.mode)
-        #     # print(generate)
-        #
-        #     # 训练时的预测结果写入txt
-        #     with open('../data/out.txt', 'a', encoding='utf-8') as f:
-        #         f.write(generate + '\n')
-
     def predict_random(self, length=24, mode='one-hot'):
         """
         Randomly select the first line of a poem from the sample and generate wuyanjueju.
