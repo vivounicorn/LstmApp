@@ -37,7 +37,7 @@ if __name__ == '__main__':
     cfg_file_path = '/home/zhanglei/Gitlab/LstmApp/config/cfg.ini'
     base_data = PoetrysDataSet(cfg_file_path)
     train_word2vec(base_data)
-    base_data.load_word2vec_model('../data//w2v_models/w2v_size200_sg1_hs0_ns3.model')
+    base_data.load_word2vec_mcdodel('../data//w2v_models/w2v_size200_sg1_hs0_ns3.model')
 
     model = train_lstm(base_data)
 
