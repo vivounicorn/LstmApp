@@ -4,15 +4,24 @@ from src.word2vec import Word2vecModel
 
 cfg_file_path = '/home/zhanglei/Gitlab/LstmApp/config/cfg.ini'
 base_data = PoetrysDataSet(cfg_file_path)
+base_data.load_word2vec_model('../data//w2v_models/text_type_1.model')
+
+model = LstmModel(cfg_file_path, base_data, 'word2vec')
+model.load('/home/zhanglei/Gitlab/LstmApp/data/models/model-2041.hdf5')
+print(model.generate_poetry("我见一片海，",mode='word2vec'))
+# exit(0)
+
 # model = LstmModel(cfg_file_path, base_data)
 #
 # model.load('/home/zhanglei/Gitlab/LstmApp/data/models/model-59.hdf5')
 # print(base_data.idxlst2sentence([321, 4721, 400, 3814, 282, 4999]))
+
 # print(model.predict_base([321, 4721, 400, 3814, 282, 4999], False))
 # print(model.predict_random())
 # s="争空谁上尽，"
 # sv=base_data.sentence2idxlist(s)
 # print(sv)
+# exit(0)
 # generate = model.predict_sen(sv)
 # print(generate)
 # print(model.dataset.idxlst2sentence(generate))

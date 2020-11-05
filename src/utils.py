@@ -32,6 +32,3 @@ class Logger(logging.Logger):
         # 给logger添加handler
         self.addHandler(fh)
         self.addHandler(ch)
-
-if __name__ == '__main__':
-    pass

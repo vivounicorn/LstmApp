@@ -5,6 +5,7 @@ import os
 from configparser import ConfigParser
 from src.constant import FILE_SECTION, PARAM_SECTION, WORD2VEC
 
+
 class Config(object):
 
     def __init__(self, file_path):

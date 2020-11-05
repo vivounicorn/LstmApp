@@ -5,12 +5,10 @@ import os
 import numpy as np
 from keras.models import Input, Sequential, load_model, Model
 from keras.layers.core import Dense, Dropout
-from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM
 from keras.utils import plot_model
 from keras.callbacks import ModelCheckpoint, LambdaCallback
-from keras.optimizers import Adam
-from keras import losses
+import random
 from src.constant import ONE_HOT, WORD2VEC
 
 from src.utils import Logger
@@ -18,10 +16,20 @@ from src.config import Config
 
 
 class LstmModel(object):
+    """
+    Lstm model class.
+    """
+
     def __init__(self,
                  cfg_path='/home/zhanglei/Gitlab/LstmApp/config/cfg.ini',
                  dataset=None,
                  mode='one-hot'):
+        """
+        To initialize lstm model.
+        :param cfg_path: the path of configuration file.
+        :param dataset: the data set of model training.
+        :param mode: one-hot or word2vec encoding.
+        """
 
         cfg = Config(cfg_path)
 
@@ -45,6 +53,12 @@ class LstmModel(object):
     def _build(self,
                lstm_layers_num,
                dense_layers_num):
+        """
+        To build a lstm model with lstm layers and densse layers.
+        :param lstm_layers_num: The number of lstm layers.
+        :param dense_layers_num:The number of dense layers.
+        :return: model.
+        """
 
         units = 256
         model = Sequential()
@@ -81,7 +95,12 @@ class LstmModel(object):
         self.model = model
         return model
 
-    def load(self, model_path):
+    def load(self, model_path) -> None:
+        """
+        To load trained model.
+        :param model_path: the path of exist model.
+        :return: None.
+        """
 
         if not os.path.exists(model_path):
             log.error("the path of model is not exist.")
@@ -89,11 +108,21 @@ class LstmModel(object):
         self.model = load_model(model_path)
 
     def save(self, model_path):
+        """
+        To save  trained model.
+        :param model_path: the path of model saving.
+        :return: None.
+        """
 
         self.save(model_path)
         return model_path
 
-    def train_batch(self, mode='one-hot'):
+    def train_batch(self, mode='one-hot') -> None:
+        """
+        To train model with batch.
+        :param mode: one-hot or word2vec encoding.
+        :return: None.
+        """
 
         log.debug("begin training")
         log.debug("batch_size:{0},steps_per_epoch:{1},epochs:{2},validation_steps{3}"
@@ -114,11 +143,16 @@ class LstmModel(object):
                                  validation_steps=self.data_sets.data_size_valid // self.batch_size,
                                  callbacks=[
                                      self.checkpoint,
-                                     LambdaCallback(on_epoch_end=self.generate_sample_result)
+                                     LambdaCallback(on_epoch_end=self.export_checkpoint_results)
                                  ])
         log.debug("end training")
 
     def evaluate_batch(self, mode='one-hot'):
+        """
+        To evaluate model with batch.
+        :param mode: onr-hot or word2vec encoding.
+        :return: prediction result.
+        """
         log.debug("begin testing")
         log.debug("batch_size:{0},test{1}".format(self.batch_size,
                                                   self.data_sets.data_size_test // self.batch_size))
@@ -128,171 +162,106 @@ class LstmModel(object):
                                              verbose=True,
                                              steps=self.data_sets.data_size_test // self.batch_size)
         log.debug(pred)
-        # print(len(pred))
-        # print(np.argmax(pred, axis=1))
         log.debug("end testing")
         return np.argmax(pred, axis=1)
 
-    def sample(self, preds, temperature=1.0):
-        '''
-        当temperature=1.0时，模型输出正常
-        当temperature=0.5时，模型输出比较open
-        当temperature=1.5时，模型输出比较保守
-        在训练的过程中可以看到temperature不同，结果也不同
-        就是一个概率分布变换的问题，保守的时候概率大的值变得更大，选择的可能性也更大
-        '''
-        preds = np.asarray(preds).astype('float64')
-        exp_preds = np.power(preds, 1. / temperature)
-        preds = exp_preds / np.sum(exp_preds)
-        pro = np.random.choice(range(len(preds)), 1, p=preds)
-        return int(pro.squeeze())
-
     def predict_base(self, sentence, isword2idx=True, mode='one-hot'):
-        '''
-        if isword2idx=True then sentence='床前明月光'
-        if isword2idx=False then sentence=[321, 4721, 400, 3814, 282, 4999]
-        return word's index
-        '''
+        """
+        To predict model.
+        :param sentence: a sentence.
+        :param isword2idx: if isword2idx=True then sentence='床前明月光'
+                           if isword2idx=False then sentence=[321, 4721, 400, 3814, 282, 4999]
+        :param mode: one-hot or word2vec encoding.
+        :return: predicted word's index list.
+        """
         sentence_vector = self.data_sets.sentence2vec(sentence, isword2idx, mode)
         preds = self.model.predict(sentence_vector, verbose=1)[0]
-        # log.debug(np.argmax(preds))
-        next_index = self.sample(preds, temperature=1)
-        # next_char = self.dataset.i2w(next_index)
-
-        # log.debug(next_index)
+        pro = np.random.choice(range(len(preds)), 1, p=preds)
+        next_index = int(pro.squeeze())
         return [next_index]
 
-    #--------------------------------------------------------
-    def generate_sample_result(self, epoch, log):
-        '''训练过程中，每4个epoch打印出当前的学习情况'''
+    def export_checkpoint_results(self, epoch, logs):
+        """
+        To export checkpoint result randomly every 6 iterations.
+        :param epoch: current epoch.
+        :param logs: current logs.
+        :return: None
+        """
+
         if epoch % 6 != 0:
             return
 
-        with open('../data/out.txt', 'a', encoding='utf-8') as f:
-            f.write('==================Epoch {}=====================\n'.format(epoch))
+        log.info("==================Epoch {0}, Loss {1}=====================".format(epoch, logs['loss']))
+        for i in range(6):
+            generate = self.predict_random(mode=self.mode)
+            log.info(generate)
+        log.info("==================End=====================")
 
-        print("\n==================Epoch {}=====================".format(epoch))
-        for diversity in [0.7, 1.0, 1.3]:
-            print("------------Diversity {}--------------".format(diversity))
-            generate = self.predict_random(self.mode)
-            # print(generate)
+        # with open('../data/out.txt', 'a', encoding='utf-8') as f:
+        #     f.write('==================Epoch {}=====================\n'.format(epoch))
+        #
+        # print("\n==================Epoch {}=====================".format(epoch))
+        # for diversity in [0.7, 1.0, 1.3]:
+        #     print("------------Diversity {}--------------".format(diversity))
+        #     generate = self.predict_random(mode=self.mode)
+        #     # print(generate)
+        #
+        #     # 训练时的预测结果写入txt
+        #     with open('../data/out.txt', 'a', encoding='utf-8') as f:
+        #         f.write(generate + '\n')
 
-            # 训练时的预测结果写入txt
-            with open('../data/out.txt', 'a', encoding='utf-8') as f:
-                f.write(generate + '\n')
-
-    def predict_random(self, mode='one-hot'):
-        '''随机从库中选取一句开头的诗句，生成五言绝句
-        sentence = [1921, 2108, 318, 577, 804, 4999]'''
-        if not self.model:
-            print('model not loaded')
-            return
-        import random
+    def predict_random(self, length=24, mode='one-hot'):
+        """
+        Randomly select the first line of a poem from the sample and generate wuyanjueju.
+        :param length: How long are the generated sentences.
+        :param mode: one-hot or word2vec encoding.
+        :return: a sentence. sentence = "共题诗句遍，".
+        """
 
         index = random.randint(0, self.data_sets.data_size_test)
         sentence = self.data_sets.poetrys_vector_test[index][: self.embedding_input_length]
-        generate = self.predict_sen(sentence, mode)
+        generate = self.predict_sen(sentence, length=length, mode=mode)
         return self.data_sets.idxlst2sentence(generate)
 
-
-    def _preds(self, sentence, length=23, mode='one-hot'):
-        '''
-        sentence:预测输入值
-        lenth:预测出的字符串长度
-        供类内部调用，输入max_len长度字符串，返回length长度的预测值字符串
-        sentence=[321, 4721, 400, 3814, 282, 4999]
-        '''
-        sentence = sentence[:self.embedding_input_length]
-        generate = []
-        for i in range(length):
-            pred = self.predict_base(sentence, False, mode)
-            generate += pred
-            # print('pred:',pred)
-            # print('sen:',sentence)
-            sentence = sentence[1:] + pred
-        return generate
-
-
-    def predict_sen(self, text, mode='one-hot'):
-        '''根据给出的前max_len个字，生成诗句'''
-        '''text=[321, 4721, 400, 3814, 282, 4999]'''
-        '''此例中，即根据给出的第一句诗句（含逗号），来生成古诗'''
+    def predict_sen(self, text, length=24, isword2idx=False, mode='one-hot'):
+        """
+        Using a text of length "embedding_input_length" to predict one sentence.
+        :param isword2idx: if isword2idx=True then sentence='床前明月光'
+                           if isword2idx=False then sentence=[321, 4721, 400, 3814, 282, 4999]
+        :param text: a text of length "embedding_input_length". sentence=[321, 4721, 400, 3814, 282, 4999]
+        :param length: How long are the generated sentences.
+        :param mode: one-hot or word2vec encoding.
+        :return: a generated sentence.
+        """
         if not self.model:
-            return
-        max_len = self.embedding_input_length
-        if len(text) < max_len:
-            print('length should not be less than ', max_len)
+            log.error("The model is not be trained or loaded.")
             return
 
-        sentence = text[-max_len:]
-        # print('the first line:', sentence)
+        if len(text) < self.embedding_input_length:
+            log.error('the length of text should not be less than {0}'.format(self.embedding_input_length))
+            return
+
+        sentence = text[-self.embedding_input_length:]
         generate = sentence
-        generate += self._preds(sentence, 24-self.embedding_input_length, mode)
+
+        sentence = sentence[:self.embedding_input_length]
+        tmp = []
+        for i in range(length - self.embedding_input_length):
+            pared = self.predict_base(sentence, isword2idx, mode)
+            tmp += pared
+            sentence = sentence[1:] + pared
+
+        generate += tmp
         return generate
 
-    def gen_poetry(self, seed_text, rows=4, cols=5):
-        '''
-        生成詩詞的函式
-        輸入: 兩個漢字, 行數, 每行的字數 (預設為五言絕句)
-        '''
-        total_cols = cols + 1  # 加上標點符號
-        import re, random
-        chars = re.findall('[\x80-\xff]{3}|[\w\W]', seed_text)
-        if len(chars) != self.embedding_input_length:  # seq_len = 2
-            return ""
-        #
-        arr = [self.data_sets.word2idx[k] for k in chars]
-        for i in range(self.embedding_input_length, rows * total_cols):
-            if (i + 1) % total_cols == 0:  # 逗號或句號
-                if (i + 1) / total_cols == 2 or (i + 1) / total_cols == 4:  # 句號的情況
-                    arr.append(2)  # 句號在字典中的對映為 2
-                else:
-                    arr.append(1)  # 逗號在字典中的對映為 1
-            else:
-                sentence_vector = self.data_sets.sentence2vec(seed_text)
-                proba = self.model.predict(np.array(arr[-self.embedding_input_length:]), verbose=0)
-                predicted = np.argsort(proba[1])[-5:]
-                index = random.randint(0, len(predicted) - 1)  # 在前五個可能結果裡隨機取, 避免每次都是同樣的結果
-                new_char = predicted[index]
-                while new_char == 1 or new_char == 2:  # 如果是逗號或句號, 應該重新換一個
-                    index = random.randint(0, len(predicted) - 1)
-                    new_char = predicted[index]
-                arr.append(new_char)
-        poem = [self.data_sets.idx2word[i] for i in arr]
-        return "".join(poem)
-
-    def build_model(self):
-        '''建立模型'''
-        print('building model')
-
-        # # 输入的dimension
-        # input_tensor = Input(shape=(self.embedding_input_length, self.vocab_size))
-        # # input_tensor = Embedding(output_dim=self.embedding_output_dim,
-        # #                          input_dim=self.vocab_size,
-        # #                          input_length=self.embedding_input_length)
-        # model = Sequential()
-        # # model.add(Embedding(output_dim=self.embedding_output_dim,
-        # #                     input_dim=self.vocab_size,
-        # #                     input_length=self.embedding_input_length))
-        # model.add(Input(shape=(self.embedding_input_length, self.vocab_size)))
-        # model.add(LSTM(512, return_sequences=True))
-        # model.add(Dropout(0.6))
-        # model.add(LSTM(256))
-        # model.add(Dropout(0.6))
-        # model.add(Dense(self.vocab_size, activation='softmax'))
-        # self.model = model
-        # self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-        # self.model.summary()
-
-        input_tensor = Input(shape=(self.embedding_input_length, self.vocab_size))
-        lstm = LSTM(512, return_sequences=True)(input_tensor)
-        dropout = Dropout(0.6)(lstm)
-        lstm = LSTM(256)(dropout)
-        dropout = Dropout(0.6)(lstm)
-        dense = Dense(self.vocab_size, activation='softmax')(dropout)
-        self.model = Model(inputs=input_tensor, outputs=dense)
-        optimizer = Adam(lr=self.learning_rate)
-        self.model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-
-        plot_model(self.model, to_file='../model2.png', show_shapes=True,
-                   expand_nested=True)
+    def generate_poetry(self, text, length=24, mode='one-hot'):
+        """
+        Using a text of length "embedding_input_length" to generate a poetry.
+        :param text: a text of length "embedding_input_length". text="我见一片海，"
+        :param length: How long are the generated sentences.
+        :param mode: one-hot or word2vec encoding.
+        :return: a poetrry. "我见一片海，薄年草古流。从安身上作，犹舞得转惭。"
+        """
+        sc = self.data_sets.sentence2idxlist(text)
+        generate = self.predict_sen(sc, isword2idx=False, length=length, mode=mode)
+        return self.data_sets.idxlst2sentence(generate)
