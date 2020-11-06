@@ -71,14 +71,14 @@ class LstmModel(object):
 
         model.add(Input(shape=(self.embedding_input_length, dim)))
 
-        model.add(LSTM(units=512,
-                       return_sequences=True))
-        model.add(Dropout(0.6))
-
         for i in range(lstm_layers_num - 1):
             model.add(LSTM(units=units * (i + 1),
-                           return_sequences=False))
+                           return_sequences=True))
             model.add(Dropout(0.6))
+
+        model.add(LSTM(units=units * lstm_layers_num,
+                       return_sequences=False))
+        model.add(Dropout(0.6))
 
         for i in range(dense_layers_num - 1):
             model.add(Dense(units=units * (i + 1)))

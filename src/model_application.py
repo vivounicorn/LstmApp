@@ -40,15 +40,16 @@ def test_lstm(base_data, sentence, model_path=None, mode='word2vec'):
 if __name__ == '__main__':
     cfg_file_path = '/home/zhanglei/Gitlab/LstmApp/config/cfg.ini'
     w2vmodel_path = '/home/zhanglei/Gitlab/LstmApp/data/w2v_models/w2v_size200_sg1_hs0_ns3.model'
-    model_path = '/home/zhanglei/Gitlab/LstmApp/data/models/model-2117.hdf5'
+    model_path = None#'/home/zhanglei/Gitlab/LstmApp/data/models/model-2117.hdf5'
 
     base_data = PoetrysDataSet(cfg_file_path)
+    # base_data.dump_data()
     # train_word2vec(base_data)
     base_data.load_word2vec_model(w2vmodel_path)
 
-    # train_lstm(base_data=base_data, finetune=model_path)
+    train_lstm(base_data=base_data, finetune=model_path)
 
-    sentence = '人问寒山道，'
+    sentence = '春晖开紫苑，'
 
     for i in range(10):
         print(test_lstm(base_data=base_data, sentence=sentence, model_path=model_path))
