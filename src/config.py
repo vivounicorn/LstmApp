@@ -59,11 +59,6 @@ class Config(object):
             return self.config.getint(PARAM_SECTION, 'vocab_size')
         return None
 
-    def learning_rate(self):
-        if self.config.has_option(PARAM_SECTION, 'learning_rate'):
-            return self.config.getfloat(PARAM_SECTION, 'learning_rate')
-        return None
-
     def batch_size(self):
         if self.config.has_option(PARAM_SECTION, 'batch_size'):
             return self.config.getint(PARAM_SECTION, 'batch_size')

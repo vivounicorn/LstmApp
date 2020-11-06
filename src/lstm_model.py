@@ -44,7 +44,6 @@ class LstmModel(object):
                                           verbose=1)
         self.batch_size = cfg.batch_size()
         self.epochs = cfg.num_epochs()
-        self.learning_rate = cfg.learning_rate()
         self.data_sets = dataset
         self.mode = mode
 
