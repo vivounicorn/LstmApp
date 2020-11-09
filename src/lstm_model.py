@@ -196,7 +196,7 @@ class LstmModel(object):
             log.info(generate)
         log.info("==================End=====================")
 
-    def predict_random(self, length=24, mode='one-hot'):
+    def predict_random(self, length=32, mode='one-hot'):
         """
         Randomly select the first line of a poem from the sample and generate wuyanjueju.
         :param length: How long are the generated sentences.
@@ -209,7 +209,7 @@ class LstmModel(object):
         generate = self.predict_sen(sentence, length=length, mode=mode)
         return self.data_sets.idxlst2sentence(generate)
 
-    def predict_sen(self, text, length=24, isword2idx=False, mode='one-hot'):
+    def predict_sen(self, text, length=32, isword2idx=False, mode='one-hot'):
         """
         Using a text of length "embedding_input_length" to predict one sentence.
         :param isword2idx: if isword2idx=True then sentence='床前明月光'
@@ -240,7 +240,7 @@ class LstmModel(object):
         generate += tmp
         return generate
 
-    def generate_poetry(self, text, length=24, mode='one-hot'):
+    def generate_poetry(self, text, length=32, mode='one-hot'):
         """
         Using a text of length "embedding_input_length" to generate a poetry.
         :param text: a text of length "embedding_input_length". text="我见一片海，"

@@ -28,28 +28,28 @@ def train_lstm(base_data, finetune=None, mode='word2vec'):
     return model
 
 
-def test_lstm(base_data, sentence, model_path=None, mode='word2vec'):
+def test_lstm(base_data, sentence, model_path=None, length=32, mode='word2vec'):
 
     model = LstmModel(cfg_file_path, base_data, mode)
     if model_path is not None:
         model.load(model_path)
 
-    return model.generate_poetry(sentence, mode=mode)
+    return model.generate_poetry(sentence, length=length, mode=mode)
 
 
 if __name__ == '__main__':
     cfg_file_path = '/home/zhanglei/Gitlab/LstmApp/config/cfg.ini'
     w2vmodel_path = '/home/zhanglei/Gitlab/LstmApp/data/w2v_models/w2v_size200_sg1_hs0_ns3.model'
-    model_path = None#'/home/zhanglei/Gitlab/LstmApp/data/models/model-2117.hdf5'
+    model_path = '/home/zhanglei/Gitlab/LstmApp/data/models/model-1620.hdf5'
 
     base_data = PoetrysDataSet(cfg_file_path)
-    # base_data.dump_data()
-    # train_word2vec(base_data)
+    base_data.dump_data()
+    train_word2vec(base_data)
     base_data.load_word2vec_model(w2vmodel_path)
 
     train_lstm(base_data=base_data, finetune=model_path)
 
-    sentence = '春晖开紫苑，'
+    sentence = '望门投止思张俭，'
 
     for i in range(10):
         print(test_lstm(base_data=base_data, sentence=sentence, model_path=model_path))
